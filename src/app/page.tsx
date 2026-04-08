@@ -1,65 +1,188 @@
-import Image from "next/image";
+// src/app/page.tsx
+import Image from 'next/image';
+import Navbar from '../Components/layout/Navbar';
+import { createClient } from '@/lib/supabase/server';
+import type { Evento, ApiResponse, Usuario } from '@/types';
 
-export default function Home() {
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; ubicacion?: string; fecha?: string }>;
+}) {
+  const params = await searchParams;
+  const searchTerm = params.search?.trim() || '';
+
+  // ✅ Obtener usuario directamente desde Supabase (lee las cookies correctamente)
+  let user: Usuario | null = null;
+  try {
+    const supabase = await createClient();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+
+    if (authUser) {
+      const { data } = await supabase
+        .from('usuario')
+        .select('id, nombre, email, rol')
+        .eq('id', authUser.id)
+        .single();
+      user = data;
+    }
+  } catch {
+    // Usuario no logueado, user queda null
+  }
+
+  // Obtener eventos
+  let url = 'http://localhost:3000/api/events';
+  if (searchTerm) {
+    url += `?search=${encodeURIComponent(searchTerm)}`;
+  }
+
+  let eventos: Evento[] = [];
+  let errorMsg = '';
+
+  try {
+    const res = await fetch(url, {
+      cache: 'no-store',
+      next: { revalidate: 0 },
+    });
+
+    const json: ApiResponse<Evento[]> = await res.json();
+
+    if (!res.ok || json.error) {
+      errorMsg = json.message || 'Error al cargar los eventos';
+    } else {
+      eventos = json.data || [];
+    }
+  } catch {
+    errorMsg = 'No se pudo conectar con el servidor.';
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+    <div className="min-h-screen bg-[#1a1625] text-white">
+      <Navbar user={user} />
+
+      {/* Hero con filtro */}
+      <section className="relative h-[620px] flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-black/60 z-10" />
+        
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
+          src="https://images.unsplash.com/photo-1516450360452-9312f5e86fc7"
+          alt="Grupo musical"
+          fill
+          className="object-cover"
           priority
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+
+        <div className="relative z-20 text-center px-6 max-w-5xl mx-auto">
+          <h1 className="text-5xl md:text-6xl font-bold mb-8 leading-tight">
+            ANTICIPA TUS BOLETOS
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+
+          <form className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-2 max-w-4xl mx-auto">
+            <div className="flex flex-col md:flex-row gap-2 bg-white/5 rounded-3xl p-2">
+
+              {/* Ubicación */}
+              <div className="flex-1 flex items-center gap-3 bg-white/10 rounded-2xl px-6 py-4">
+                <span className="text-2xl">📍</span>
+                <div className="flex-1">
+                  <p className="text-xs text-white/70">Ubicación</p>
+                  <select
+                    name="ubicacion"
+                    className="bg-transparent outline-none w-full text-white font-medium"
+                  >
+                    <option value="">Todas las ubicaciones</option>
+                    <option value="SLP">San Luis Potosí</option>
+                    <option value="CDMX">Ciudad de México</option>
+                    <option value="GDL">Guadalajara</option>
+                    <option value="MTY">Monterrey</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Fecha */}
+              <div className="flex-1 flex items-center gap-3 bg-white/10 rounded-2xl px-6 py-4">
+                <span className="text-2xl">📅</span>
+                <div className="flex-1">
+                  <p className="text-xs text-white/70">Fecha</p>
+                  <input
+                    type="date"
+                    name="fecha"
+                    className="bg-transparent outline-none w-full text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Artista / Evento */}
+              <div className="flex-1 flex items-center gap-3 bg-white/10 rounded-2xl px-6 py-4">
+                <span className="text-2xl">🎤</span>
+                <div className="flex-1">
+                  <p className="text-xs text-white/70">Artista o evento</p>
+                  <input
+                    name="search"
+                    defaultValue={searchTerm}
+                    placeholder="Buscar artista o evento"
+                    className="bg-transparent outline-none w-full placeholder:text-white/60"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="bg-[#e91e63] hover:bg-[#c2185b] transition px-12 py-4 rounded-2xl font-semibold flex items-center gap-3 text-lg"
+              >
+                Buscar
+                <span className="text-2xl">🔍</span>
+              </button>
+            </div>
+          </form>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </section>
+
+      {/* Eventos */}
+      <section className="max-w-7xl mx-auto px-6 py-16">
+        <h2 className="text-4xl font-bold mb-10">
+          {searchTerm ? 'Resultados' : 'Anticipa tus boletos'}
+        </h2>
+
+        {errorMsg && (
+          <p className="text-red-400 text-center py-8 text-lg">{errorMsg}</p>
+        )}
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {eventos.length === 0 && !errorMsg ? (
+            <p className="col-span-4 text-center text-gray-400 py-12 text-lg">
+              {searchTerm ? 'No se encontraron eventos' : 'Cargando eventos...'}
+            </p>
+          ) : (
+            eventos.map((evento) => (
+              <div
+                key={evento.id}
+                className="bg-zinc-900 rounded-2xl overflow-hidden group hover:shadow-2xl transition-all duration-300"
+              >
+                <div className="relative h-56 bg-zinc-800">
+                  <Image
+                    src={`https://picsum.photos/id/${Math.floor(Math.random() * 200)}/600/400`}
+                    alt={evento.titulo}
+                    fill
+                    className="object-cover group-hover:scale-105 transition duration-300"
+                  />
+                </div>
+                <div className="p-5">
+                  <h3 className="font-bold text-xl mb-2 line-clamp-2">{evento.titulo}</h3>
+                  <p className="text-pink-400 text-sm mb-1">{evento.ubicacion}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(evento.fecha).toLocaleDateString('es-MX', {
+                      weekday: 'long',
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </p>
+                </div>
+              </div>
+            ))
+          )}
         </div>
-      </main>
+      </section>
     </div>
   );
 }
