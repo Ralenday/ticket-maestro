@@ -23,10 +23,10 @@ export default async function HomePage({
     if (authUser) {
       const { data } = await supabase
         .from('usuario')
-        .select('id, nombre, email, rol')
+        .select('id, nombre, email, rol, fecha_registro')
         .eq('id', authUser.id)
         .single();
-      user = data;
+      user = data as Usuario;
     }
   } catch {
     // Usuario no logueado, user queda null
