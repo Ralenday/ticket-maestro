@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import type { ApiResponse, Usuario } from '@/types'
 
@@ -26,13 +27,17 @@ export async function POST(request: NextRequest) {
 
     const { nombre, email, password, rol } = validation.data
 
-    // Crear usuario en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const supabaseAdmin = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Crear usuario auto-confirmado saltándose la restricción de Supabase Auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: { nombre, rol },
-      },
+      email_confirm: true, // ¡Este es el truco!
+      user_metadata: { nombre, rol },
     })
 
     if (authError) {
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json<ApiResponse<Partial<Usuario>>>(
         {
           data: { id: authData.user.id, nombre, email, rol },
-          message: 'Usuario creado. Por favor confirma tu correo para iniciar sesión.',
+          message: 'Usuario creado correctamente, pero hubo un error al auto-iniciar sesión.',
         },
         { status: 201 }
       )
