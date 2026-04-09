@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error en registro:', error)
     return NextResponse.json<ApiResponse<null>>(
-      { error: 'Error interno al registrar usuario' },
+      { error: error instanceof Error ? error.message : JSON.stringify(error) },
       { status: 500 }
     )
   }
