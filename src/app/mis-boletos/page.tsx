@@ -58,7 +58,7 @@ export default async function MisBoletosPage() {
       // La respuesta de Supabase puede dar un arreglo de boletos (si compró varios en la misma orden)
       const boletosArray = Array.isArray(orden.boleto) ? orden.boleto : [orden.boleto];
       
-      boletosArray.forEach(boleto => {
+      boletosArray.forEach((boleto: any) => {
         // Formatear la fecha (Si evento existe)
         const fechaEventoRaw = boleto.evento ? new Date(boleto.evento.fecha) : new Date();
         const formatter = new Intl.DateTimeFormat('es-MX', { 
