@@ -1,36 +1,79 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useParams, useSearchParams, useRouter } from 'next/navigation';
-import { CheckCircle2, Download, Home } from 'lucide-react';
+import { Suspense, useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { CheckCircle2, Download, Home, Loader2 } from 'lucide-react';
 import { TicketCard } from '@/Components/ui/TicketCard';
 import Navbar from '@/Components/layout/Navbar';
+import { createClient } from '@/lib/supabase/client';
 
 function SuccessPageContent() {
   const params = useParams();
-  const searchParams = useSearchParams();
   const router = useRouter();
-  
   const orderId = params.ordenId as string;
-  const eventTitle = searchParams.get('title') || 'Festival Gira 2026';
-  const type = searchParams.get('type') || 'General';
-  const qty = parseInt(searchParams.get('qty') || '1', 10);
-  const name = searchParams.get('name') || 'Invitado';
-  const total = parseFloat(searchParams.get('total') || '0');
+  
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // En un caso real, el evento traería ciudad, etc de la BD. Aquí mockeamos.
-  const pricePerTicket = total / qty;
+  useEffect(() => {
+    const fetchTickets = async () => {
+      const supabase = createClient();
+      let attempts = 0;
+      let fetchedTickets: any[] = [];
+      let userName = 'Invitado';
 
-  const tickets = Array.from({ length: qty }).map((_, i) => ({
-    id: `${orderId}-TKT-${i + 1}`,
-    qrCodeString: `https://ticket-maestro.com/verify/${orderId}-TKT-${i + 1}`,
-    eventName: eventTitle,
-    date: '15 Octubre 2026 - 20:00', // Mock data
-    location: 'Estadio Nacional',
-    type: type,
-    price: pricePerTicket,
-    userName: name,
-  }));
+      const { data: authData } = await supabase.auth.getUser();
+      if (authData?.user) {
+         const { data: userRow } = await supabase.from('usuario').select('nombre').eq('id', authData.user.id).single();
+         if (userRow) userName = userRow.nombre;
+      }
+
+      // Hacemos polling (hasta 5 intentos) para darle tiempo al webhook de Stripe de procesar el pago y asignar el QR real
+      while (attempts < 5) {
+        const { data: orden } = await supabase
+          .from('orden')
+          .select(`
+            id,
+            boleto (
+              id,
+              codigo_qr,
+              precio,
+              tipo,
+              estado,
+              evento (titulo, fecha, ubicacion)
+            )
+          `)
+          .eq('id', orderId)
+          .single();
+
+        fetchedTickets = orden?.boleto ? (Array.isArray(orden.boleto) ? orden.boleto : [orden.boleto]) : [];
+        if (fetchedTickets.length > 0 && fetchedTickets[0].estado === 'vendido') {
+          break; // ¡El webhook ya terminó su trabajo!
+        }
+        
+        attempts++;
+        if(attempts < 5) await new Promise(r => setTimeout(r, 1500)); // Esperamos 1.5s y volvemos a checkear
+      }
+
+      const formatter = new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'long', year: 'numeric' });
+
+      const formattedTickets = fetchedTickets.map((b: any) => ({
+        id: b.id,
+        qrCodeString: b.codigo_qr?.startsWith('PENDIENTE') ? '' : b.codigo_qr,
+        eventName: b.evento?.titulo || 'Evento',
+        date: b.evento?.fecha ? formatter.format(new Date(b.evento.fecha)) : 'Por definir',
+        location: b.evento?.ubicacion || 'Por definir',
+        type: b.tipo,
+        price: b.precio,
+        userName: userName,
+      }));
+
+      setTickets(formattedTickets);
+      setLoading(false);
+    };
+
+    fetchTickets();
+  }, [orderId]);
 
   const handlePrint = () => {
     window.print();
@@ -71,14 +114,21 @@ function SuccessPageContent() {
 
         {/* Tickets Grid - Visible on Print */}
         <div className="w-full">
-            <h2 className="text-2xl font-bold mb-8 text-center print:text-black print:mb-12">Tus Boletos ({qty})</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 gap-y-16 print:grid-cols-1 print:gap-24">
-                {tickets.map(ticket => (
-                    <div key={ticket.id} className="print:break-inside-avoid">
-                        <TicketCard ticketData={ticket} />
-                    </div>
-                ))}
-            </div>
+            <h2 className="text-2xl font-bold mb-8 text-center print:text-black print:mb-12">Tus Boletos ({tickets.length})</h2>
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-400">
+                <Loader2 className="w-10 h-10 animate-spin mb-4 text-pink-500" />
+                <p>Preparando boletos...</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 gap-y-16 print:grid-cols-1 print:gap-24">
+                  {tickets.map(ticket => (
+                      <div key={ticket.id} className="print:break-inside-avoid">
+                          <TicketCard ticketData={ticket} />
+                      </div>
+                  ))}
+              </div>
+            )}
         </div>
 
       </div>
