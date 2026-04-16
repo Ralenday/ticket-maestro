@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Outfit } from "next/font/google";
 import "./globals.css";
+import NavigationProgress from "@/Components/ui/NavigationProgress";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -21,7 +22,10 @@ export default function RootLayout({
       lang="es"
       className={`h-full antialiased`}
     >
-      <body className={`${outfit.className} min-h-full flex flex-col`}>{children}</body>
+      <body className={`${outfit.className} min-h-full flex flex-col`}>
+        <NavigationProgress />
+        {children}
+      </body>
     </html>
   );
 }

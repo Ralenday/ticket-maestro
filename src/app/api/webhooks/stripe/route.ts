@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         const { error: pagoError } = await supabase
           .from('pago')
           .update({
-            estado: 'completed',
+            estado: 'exitosa',
             referencia: paymentIntent.id,
           })
           .eq('orden_id', ordenId)
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
         // Actualizar estado de la orden
         await supabase
           .from('orden')
-          .update({ estado: 'completed' })
+          .update({ estado: 'exitosa' })
           .eq('id', ordenId)
 
         // Obtener boletos de la orden para generar QR y saber el organizador
@@ -169,13 +169,13 @@ export async function POST(request: NextRequest) {
         // Marcar pago como fallido
         await supabase
           .from('pago')
-          .update({ estado: 'failed' })
+          .update({ estado: 'fallido' })
           .eq('orden_id', ordenId)
 
         // Marcar orden como cancelada
         await supabase
           .from('orden')
-          .update({ estado: 'cancelled' })
+          .update({ estado: 'cancelada' })
           .eq('id', ordenId)
 
         // Liberar boletos para que otros puedan comprarlos

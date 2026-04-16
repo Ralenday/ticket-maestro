@@ -173,7 +173,7 @@ export default function Navbar({ user: initialUser }: NavbarProps) {
                       {(user.rol === 'organizador' || user.rol === 'admin') && (
                         <Link href="/organizador" onClick={() => setMenuAbierto(false)} className="flex items-center gap-3 px-4 py-3 text-sm text-purple-300 hover:bg-white/10 hover:text-purple-200 transition font-medium">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                          Panel de creador
+                          Panel del organizador
                         </Link>
                       )}
                       {user.rol === 'admin' && (
@@ -250,7 +250,7 @@ export default function Navbar({ user: initialUser }: NavbarProps) {
                 {(user.rol === 'organizador' || user.rol === 'admin') && (
                   <Link href="/organizador" onClick={() => setMobileOpen(false)} className="flex items-center gap-3 px-4 py-3 text-purple-300 hover:bg-white/10 rounded-xl transition font-medium">
                     <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                    Panel de creador
+                    Panel del organizador
                   </Link>
                 )}
                 {user.rol === 'admin' && (
