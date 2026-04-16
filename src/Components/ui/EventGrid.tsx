@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { createClient } from '@/lib/supabase/client';
 import type { Evento } from '@/types';
 
 // Skeleton de un evento
@@ -32,21 +33,49 @@ export default function EventGrid({ searchTerm = '', ubicacion = '', fecha = '',
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.set('search', searchTerm);
-    if (ubicacion) params.set('ubicacion', ubicacion);
-    if (fecha) params.set('fecha', fecha);
-    if (fechaFin) params.set('fechaFin', fechaFin);
+    const fetchEvents = async () => {
+      setLoading(true);
+      try {
+        const supabase = createClient();
+        
+        let query = supabase
+          .from('evento')
+          .select('*, categoria(*)')
+          .eq('estado', 'activo')
+          .order('fecha', { ascending: true })
+          .range(0, 20); // Limitamos a 20 por ahora
 
-    setLoading(true);
-    fetch(`/api/events?${params.toString()}`)
-      .then(r => r.json())
-      .then(json => {
-        if (json.error) setErrorMsg(json.error);
-        else setEventos(json.data || []);
-      })
-      .catch(() => setErrorMsg('No se pudo conectar con la base de datos.'))
-      .finally(() => setLoading(false));
+        if (searchTerm) {
+          query = query.ilike('titulo', `%${searchTerm}%`);
+        }
+        if (ubicacion) {
+          query = query.ilike('ubicacion', `%${ubicacion}%`);
+        }
+        if (fecha) {
+          query = query.gte('fecha', fecha);
+        }
+        if (fechaFin) {
+          query = query.lte('fecha', fechaFin);
+        }
+
+        const { data, error } = await query;
+        
+        if (error) {
+           console.error('Error Supabase:', error);
+           setErrorMsg('No se pudo conectar con la base de datos.');
+        } else {
+           setEventos(data || []);
+           setErrorMsg('');
+        }
+      } catch (err) {
+        console.error('Error fetching events:', err);
+        setErrorMsg('Error interno al obtener eventos.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvents();
   }, [searchTerm, ubicacion, fecha, fechaFin]);
 
   return (

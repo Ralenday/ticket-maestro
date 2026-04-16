@@ -264,18 +264,34 @@ export default function NuevoEventoPage() {
                                <div className="flex-shrink-0 flex items-center bg-[#1a1625] border border-white/10 rounded-xl px-4 py-3 hover:border-pink-500 transition cursor-pointer">
                                   <input 
                                     type="file" accept="image/*"
-                                    onChange={(e) => {
+                                    onChange={async (e) => {
                                       const file = e.target.files?.[0];
                                       if (file) {
                                           if (file.size > 2 * 1024 * 1024) {
-                                             alert("Para la prueba beta la imagen debe ser menor a 2MB");
+                                             alert("La imagen debe ser menor a 2MB");
                                              return;
                                           }
-                                          const reader = new FileReader();
-                                          reader.onloadend = () => {
-                                              setFormData(prev => ({ ...prev, imagen: reader.result as string }));
-                                          };
-                                          reader.readAsDataURL(file);
+                                          
+                                          setLoading(true);
+                                          const fileExt = file.name.split('.').pop();
+                                          const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+                                          
+                                          const { error: uploadError } = await supabase.storage
+                                              .from('eventos')
+                                              .upload(fileName, file);
+                                              
+                                          if (uploadError) {
+                                              alert("Error al subir la imagen (Asegúrate de ejecutar el script de Storage en Supabase): " + uploadError.message);
+                                              setLoading(false);
+                                              return;
+                                          }
+                                          
+                                          const { data } = supabase.storage
+                                              .from('eventos')
+                                              .getPublicUrl(fileName);
+                                              
+                                          setFormData(prev => ({ ...prev, imagen: data.publicUrl }));
+                                          setLoading(false);
                                       }
                                     }}
                                     className="text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-bold file:bg-pink-500/10 file:text-pink-400 hover:file:bg-pink-500/20 transition cursor-pointer w-full"
